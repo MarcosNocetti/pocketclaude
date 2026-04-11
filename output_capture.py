@@ -16,6 +16,17 @@ def capture_pane(session_name: str) -> str:
     return strip_ansi(result.stdout)
 
 
+def capture_pane_recent(session_name: str, lines: int = 30) -> str:
+    """Capture last N non-empty lines of the pane. More reliable than delta."""
+    result = subprocess.run(
+        ["tmux", "capture-pane", "-p", "-S", "-200", "-t", session_name],
+        capture_output=True, text=True
+    )
+    content = strip_ansi(result.stdout)
+    non_empty = [l for l in content.splitlines() if l.strip()]
+    return "\n".join(non_empty[-lines:])
+
+
 def compute_delta(before: str, after: str) -> str:
     """Return content in after that wasn't in before, based on tail overlap."""
     before_lines = before.rstrip().splitlines()

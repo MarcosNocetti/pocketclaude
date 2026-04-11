@@ -185,15 +185,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             "Use /new <nome> para criar ou /attach <nome> para ativar."
         )
         return
-    before = output_capture.capture_pane(active)
     session_manager.send_keys(active, update.message.text)
     await asyncio.sleep(session_manager.get_delay())
-    after = output_capture.capture_pane(active)
-    delta = output_capture.compute_delta(before, after)
-    await send_long(
-        update,
-        delta or "(sem novo output — use /output para ver o painel completo)",
-    )
+    output = output_capture.capture_pane_recent(active)
+    await send_long(update, output or "(sem output)")
 
 
 def main() -> None:
