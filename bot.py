@@ -13,8 +13,8 @@ from telegram.ext import (
 )
 
 import config
+import claude_runner
 import file_manager
-import output_capture
 import session_manager
 
 logging.basicConfig(
@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 BOT_START_TIME = time.time()
 
 file_manager.set_upload_dir(config.UPLOAD_DIR)
-session_manager.set_delay(config.OUTPUT_CAPTURE_DELAY)
 
 
 def auth(func):
@@ -53,16 +52,19 @@ async def send_long(update: Update, text: str, chunk_size: int = 4000) -> None:
 @auth
 async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.args:
-        await update.message.reply_text("Uso: /new <nome>")
+        await update.message.reply_text("Uso: /new <nome> [<diret\u00f3rio>]")
         return
     name = context.args[0]
-    if session_manager.new_session(name):
+    cwd = context.args[1] if len(context.args) > 1 else "~"
+    if session_manager.new_session(name, cwd):
+        expanded = session_manager.get_session_cwd(name)
         await update.message.reply_text(
-            f"✓ Sessão criada. Ativa: `{name}`", parse_mode="Markdown"
+            f"\u2713 Sess\u00e3o criada. Ativa: `{name}`\nDiret\u00f3rio: `{expanded}`",
+            parse_mode="Markdown",
         )
     else:
         await update.message.reply_text(
-            f"❌ Sessão `{name}` já existe. Use /attach para ativá-la.",
+            f"\u274c Sess\u00e3o `{name}` j\u00e1 existe. Use /attach para ativ\u00e1-la.",
             parse_mode="Markdown",
         )
 
@@ -74,10 +76,10 @@ async def cmd_attach(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     name = context.args[0]
     if session_manager.attach_session(name):
-        await update.message.reply_text(f"✓ Ativa: `{name}`", parse_mode="Markdown")
+        await update.message.reply_text(f"\u2713 Ativa: `{name}`", parse_mode="Markdown")
     else:
         await update.message.reply_text(
-            f"❌ Sessão `{name}` não encontrada.", parse_mode="Markdown"
+            f"\u274c Sess\u00e3o `{name}` n\u00e3o encontrada.", parse_mode="Markdown"
         )
 
 
@@ -87,10 +89,14 @@ async def cmd_sessions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     active = session_manager.get_active()
     if not sessions:
         await update.message.reply_text(
-            "Nenhuma sessão aberta. Use /new <nome> para criar."
+            "Nenhuma sess\u00e3o aberta. Use /new <nome> para criar."
         )
         return
-    lines = [f"• `{s}`{' ← ativa' if s == active else ''}" for s in sessions]
+    lines = []
+    for s in sessions:
+        marker = " \u2190 ativa" if s == active else ""
+        cwd = session_manager.get_session_cwd(s)
+        lines.append(f"\u2022 `{s}`{marker}\n  `{cwd}`")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
@@ -102,11 +108,11 @@ async def cmd_kill(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     name = context.args[0]
     if session_manager.kill_session(name):
         await update.message.reply_text(
-            f"✓ Sessão `{name}` encerrada.", parse_mode="Markdown"
+            f"\u2713 Sess\u00e3o `{name}` encerrada.", parse_mode="Markdown"
         )
     else:
         await update.message.reply_text(
-            f"❌ Sessão `{name}` não encontrada.", parse_mode="Markdown"
+            f"\u274c Sess\u00e3o `{name}` n\u00e3o encontrada.", parse_mode="Markdown"
         )
 
 
@@ -118,30 +124,9 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     minutes = remainder // 60
     active_text = f"`{active}`" if active else "nenhuma"
     await update.message.reply_text(
-        f"Sessão ativa: {active_text}\nUptime: {hours}h {minutes}m\n"
-        f"Delay output: {session_manager.get_delay()}s",
+        f"Sess\u00e3o ativa: {active_text}\nUptime: {hours}h {minutes}m",
         parse_mode="Markdown",
     )
-
-
-@auth
-async def cmd_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.args or not context.args[0].isdigit():
-        await update.message.reply_text("Uso: /timeout <segundos>")
-        return
-    seconds = int(context.args[0])
-    session_manager.set_delay(seconds)
-    await update.message.reply_text(f"✓ Delay de captura: {seconds}s")
-
-
-@auth
-async def cmd_output(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    active = session_manager.get_active()
-    if not active:
-        await update.message.reply_text("Nenhuma sessão ativa.")
-        return
-    content = output_capture.capture_pane(active)
-    await send_long(update, content or "(painel vazio)")
 
 
 @auth
@@ -162,7 +147,7 @@ async def cmd_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_ls(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     path = " ".join(context.args) if context.args else "~"
     result = file_manager.list_dir(path)
-    text = f"📂 {path}\n\n{result}"
+    text = f"\U0001f4c2 {path}\n\n{result}"
     for i in range(0, len(text), 4000):
         await update.message.reply_text(text[i:i + 4000])
 
@@ -173,7 +158,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     dest = file_manager.upload_destination(doc.file_name)
     tg_file = await doc.get_file()
     await tg_file.download_to_drive(dest)
-    await update.message.reply_text(f"✓ Salvo em: `{dest}`", parse_mode="Markdown")
+    await update.message.reply_text(f"\u2713 Salvo em: `{dest}`", parse_mode="Markdown")
 
 
 @auth
@@ -181,14 +166,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     active = session_manager.get_active()
     if not active:
         await update.message.reply_text(
-            "Nenhuma sessão ativa.\n"
+            "Nenhuma sess\u00e3o ativa.\n"
             "Use /new <nome> para criar ou /attach <nome> para ativar."
         )
         return
-    session_manager.send_keys(active, update.message.text)
-    await asyncio.sleep(session_manager.get_delay())
-    output = output_capture.capture_pane_recent(active)
-    await send_long(update, output or "(sem output)")
+    cwd = session_manager.get_session_cwd(active)
+    claude_id = session_manager.get_claude_id(active)
+    await update.message.reply_text("\u23f3 Processando...")
+    response, new_id = claude_runner.run_claude(update.message.text, cwd, claude_id)
+    if new_id:
+        session_manager.set_claude_id(active, new_id)
+    await send_long(update, response)
 
 
 def main() -> None:
@@ -199,8 +187,6 @@ def main() -> None:
     app.add_handler(CommandHandler("sessions", cmd_sessions))
     app.add_handler(CommandHandler("kill", cmd_kill))
     app.add_handler(CommandHandler("status", cmd_status))
-    app.add_handler(CommandHandler("timeout", cmd_timeout))
-    app.add_handler(CommandHandler("output", cmd_output))
     app.add_handler(CommandHandler("send", cmd_send))
     app.add_handler(CommandHandler("ls", cmd_ls))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))

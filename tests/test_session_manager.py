@@ -1,113 +1,92 @@
+import json
+import os
 import pytest
-from unittest.mock import patch, MagicMock, call
+import tempfile
 import session_manager
 
 
-def make_run(returncode=0, stdout=""):
-    m = MagicMock()
-    m.returncode = returncode
-    m.stdout = stdout
-    return m
-
-
-def test_get_active_starts_as_none():
-    session_manager._active_session = None
-    assert session_manager.get_active() is None
-
-
-def test_set_active_and_get():
-    session_manager.set_active("minha-sessao")
-    assert session_manager.get_active() == "minha-sessao"
-    session_manager.set_active(None)
-
-
-def test_session_exists_true():
-    with patch("subprocess.run", return_value=make_run(0)):
-        assert session_manager.session_exists("existe") is True
-
-
-def test_session_exists_false():
-    with patch("subprocess.run", return_value=make_run(1)):
-        assert session_manager.session_exists("nao-existe") is False
+@pytest.fixture(autouse=True)
+def reset_state(tmp_path, monkeypatch):
+    """Reset session manager state and use temp file for each test."""
+    monkeypatch.setattr(session_manager, "SESSION_FILE", str(tmp_path / "sessions.json"))
+    monkeypatch.setattr(session_manager, "_sessions", {})
+    monkeypatch.setattr(session_manager, "_active_session", None)
+    yield
 
 
 def test_new_session_creates_and_activates():
-    def side_effect(cmd, **kwargs):
-        if "has-session" in cmd:
-            return make_run(1)  # não existe ainda
-        return make_run(0)  # new-session ok
-
-    with patch("subprocess.run", side_effect=side_effect):
-        result = session_manager.new_session("nova")
-    assert result is True
-    assert session_manager.get_active() == "nova"
-    session_manager.set_active(None)
+    assert session_manager.new_session("test") is True
+    assert session_manager.get_active() == "test"
 
 
 def test_new_session_fails_if_exists():
-    with patch("subprocess.run", return_value=make_run(0)):  # has-session ok
-        result = session_manager.new_session("existente")
-    assert result is False
+    session_manager.new_session("test")
+    assert session_manager.new_session("test") is False
 
 
-def test_attach_session_sets_active():
-    with patch("subprocess.run", return_value=make_run(0)):
-        result = session_manager.attach_session("minha")
-    assert result is True
-    assert session_manager.get_active() == "minha"
-    session_manager.set_active(None)
+def test_new_session_stores_cwd():
+    session_manager.new_session("test", "/tmp")
+    assert session_manager.get_session_cwd("test") == "/tmp"
 
 
-def test_attach_session_fails_if_not_found():
-    with patch("subprocess.run", return_value=make_run(1)):
-        result = session_manager.attach_session("fantasma")
-    assert result is False
+def test_new_session_default_cwd():
+    session_manager.new_session("test")
+    assert session_manager.get_session_cwd("test") == os.path.expanduser("~")
 
 
-def test_kill_session_clears_active_if_was_active():
-    session_manager.set_active("alvo")
+def test_attach_sets_active():
+    session_manager.new_session("a")
+    session_manager.new_session("b")
+    assert session_manager.attach_session("a") is True
+    assert session_manager.get_active() == "a"
 
-    def side_effect(cmd, **kwargs):
-        if "has-session" in cmd:
-            return make_run(0)
-        return make_run(0)
 
-    with patch("subprocess.run", side_effect=side_effect):
-        result = session_manager.kill_session("alvo")
-    assert result is True
+def test_attach_fails_if_not_found():
+    assert session_manager.attach_session("ghost") is False
+
+
+def test_kill_removes_session():
+    session_manager.new_session("test")
+    assert session_manager.kill_session("test") is True
+    assert "test" not in session_manager.list_sessions()
+
+
+def test_kill_clears_active_if_was_active():
+    session_manager.new_session("test")
+    session_manager.kill_session("test")
     assert session_manager.get_active() is None
 
 
-def test_kill_session_preserves_other_active():
-    session_manager.set_active("outra")
-
-    def side_effect(cmd, **kwargs):
-        if "has-session" in cmd:
-            return make_run(0)
-        return make_run(0)
-
-    with patch("subprocess.run", side_effect=side_effect):
-        session_manager.kill_session("alvo")
-    assert session_manager.get_active() == "outra"
-    session_manager.set_active(None)
+def test_kill_preserves_other_active():
+    session_manager.new_session("a")
+    session_manager.new_session("b")
+    session_manager.set_active("a")
+    session_manager.kill_session("b")
+    assert session_manager.get_active() == "a"
 
 
-def test_list_sessions_parses_output():
-    with patch("subprocess.run", return_value=make_run(0, "sessao1\nsessao2\n")):
-        sessions = session_manager.list_sessions()
-    assert sessions == ["sessao1", "sessao2"]
+def test_list_sessions():
+    session_manager.new_session("a")
+    session_manager.new_session("b")
+    assert set(session_manager.list_sessions()) == {"a", "b"}
 
 
-def test_list_sessions_empty_on_error():
-    with patch("subprocess.run", return_value=make_run(1)):
-        assert session_manager.list_sessions() == []
+def test_claude_id_round_trip():
+    session_manager.new_session("test")
+    assert session_manager.get_claude_id("test") is None
+    session_manager.set_claude_id("test", "abc123")
+    assert session_manager.get_claude_id("test") == "abc123"
 
 
-def test_send_keys_calls_tmux():
-    with patch("subprocess.run", return_value=make_run(0)) as mock_run:
-        result = session_manager.send_keys("minha", "git status")
-    mock_run.assert_called_once_with(
-        ["tmux", "send-keys", "-t", "minha", "git status", "Enter"],
-        capture_output=True
-    )
-    assert result is True
+def test_persistence(tmp_path, monkeypatch):
+    session_file = str(tmp_path / "sessions.json")
+    monkeypatch.setattr(session_manager, "SESSION_FILE", session_file)
+    monkeypatch.setattr(session_manager, "_sessions", {})
+    session_manager.new_session("persist", "/home/test")
+    session_manager.set_claude_id("persist", "xyz789")
+    # Simulate reload
+    monkeypatch.setattr(session_manager, "_sessions", {})
+    session_manager._load()
+    assert "persist" in session_manager.list_sessions()
+    assert session_manager.get_claude_id("persist") == "xyz789"
+    assert session_manager.get_session_cwd("persist") == "/home/test"

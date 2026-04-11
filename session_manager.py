@@ -1,8 +1,29 @@
-import subprocess
+import json
+import os
 from typing import Optional
 
+SESSION_FILE = os.path.expanduser("~/telegram-pc-bot/sessions.json")
+
 _active_session: Optional[str] = None
-_output_delay: int = 3
+_sessions: dict = {}  # name -> {"claude_id": str|None, "cwd": str}
+
+
+def _load() -> None:
+    global _sessions
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE) as f:
+                _sessions = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            _sessions = {}
+
+
+def _save() -> None:
+    with open(SESSION_FILE, "w") as f:
+        json.dump(_sessions, f, indent=2)
+
+
+_load()
 
 
 def get_active() -> Optional[str]:
@@ -14,73 +35,49 @@ def set_active(name: Optional[str]) -> None:
     _active_session = name
 
 
-def get_delay() -> int:
-    return _output_delay
-
-
-def set_delay(seconds: int) -> None:
-    global _output_delay
-    _output_delay = seconds
-
-
-def session_exists(name: str) -> bool:
-    result = subprocess.run(
-        ["tmux", "has-session", "-t", name],
-        capture_output=True
-    )
-    return result.returncode == 0
-
-
-def new_session(name: str) -> bool:
-    """Create a new detached tmux session and activate it. Returns False if already exists."""
-    if session_exists(name):
+def new_session(name: str, cwd: str = "~") -> bool:
+    """Register a new session. Returns False if name already exists."""
+    if name in _sessions:
         return False
-    result = subprocess.run(
-        ["tmux", "new-session", "-d", "-s", name],
-        capture_output=True
-    )
-    if result.returncode == 0:
-        set_active(name)
-        return True
-    return False
+    _sessions[name] = {"claude_id": None, "cwd": os.path.expanduser(cwd)}
+    _save()
+    set_active(name)
+    return True
 
 
 def attach_session(name: str) -> bool:
-    """Set an existing session as active. Returns False if not found."""
-    if not session_exists(name):
+    """Set session as active. Returns False if not found."""
+    if name not in _sessions:
         return False
     set_active(name)
     return True
 
 
 def kill_session(name: str) -> bool:
-    """Kill a tmux session. Clears active if it was the active one."""
-    if not session_exists(name):
+    """Remove a session. Returns False if not found."""
+    global _active_session
+    if name not in _sessions:
         return False
-    result = subprocess.run(
-        ["tmux", "kill-session", "-t", name],
-        capture_output=True
-    )
-    if result.returncode == 0:
-        if _active_session == name:
-            set_active(None)
-        return True
-    return False
+    del _sessions[name]
+    _save()
+    if _active_session == name:
+        set_active(None)
+    return True
 
 
-def list_sessions() -> list[str]:
-    result = subprocess.run(
-        ["tmux", "list-sessions", "-F", "#{session_name}"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        return []
-    return [s for s in result.stdout.strip().splitlines() if s]
+def list_sessions() -> list:
+    return list(_sessions.keys())
 
 
-def send_keys(session_name: str, text: str) -> bool:
-    result = subprocess.run(
-        ["tmux", "send-keys", "-t", session_name, text, "Enter"],
-        capture_output=True
-    )
-    return result.returncode == 0
+def get_session_cwd(name: str) -> str:
+    return _sessions.get(name, {}).get("cwd", os.path.expanduser("~"))
+
+
+def get_claude_id(name: str) -> Optional[str]:
+    return _sessions.get(name, {}).get("claude_id")
+
+
+def set_claude_id(name: str, claude_id: str) -> None:
+    if name in _sessions:
+        _sessions[name]["claude_id"] = claude_id
+        _save()
