@@ -162,7 +162,9 @@ async def cmd_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_ls(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     path = " ".join(context.args) if context.args else "~"
     result = file_manager.list_dir(path)
-    await update.message.reply_text(f"`{path}`\n\n{result}", parse_mode="Markdown")
+    text = f"📂 {path}\n\n{result}"
+    for i in range(0, len(text), 4000):
+        await update.message.reply_text(text[i:i + 4000])
 
 
 @auth

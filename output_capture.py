@@ -28,10 +28,18 @@ def compute_delta(before: str, after: str) -> str:
     tail_size = min(5, len(before_lines))
     tail = before_lines[-tail_size:]
 
-    for i in range(len(after_lines) - tail_size, -1, -1):
+    # Search forward to find first occurrence of tail, then return what follows it
+    found_tail = False
+    for i in range(len(after_lines) - tail_size + 1):
         if after_lines[i:i + tail_size] == tail:
+            found_tail = True
             delta_lines = after_lines[i + tail_size:]
-            return "\n".join(delta_lines).strip()
+            result = "\n".join(delta_lines).strip()
+            if result:
+                return result
 
-    # Fallback: no overlap found, return stripped after
+    if found_tail:
+        return ""  # tail found but nothing new after it
+
+    # Fallback: content changed completely, return stripped after
     return after.strip()
