@@ -1,4 +1,4 @@
-# Architecture — telegram-pc-bot
+# Architecture — pocketclaude
 
 ## Flow
 
