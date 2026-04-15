@@ -19,3 +19,4 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .venv/
+docs/superpowers/

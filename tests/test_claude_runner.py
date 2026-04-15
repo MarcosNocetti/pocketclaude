@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import json
+import subprocess
 import claude_runner
 
 
@@ -48,4 +49,17 @@ def test_run_claude_handles_invalid_json():
     with patch("subprocess.run", return_value=make_result(stdout="not json", stderr="crash")):
         text, sid = claude_runner.run_claude("bad", "/tmp", session_id="old")
     assert "\u274c" in text
-    assert sid == "old"  # preserves original session_id on error
+    assert sid is None
+
+
+def test_run_claude_retries_without_resume_after_timeout():
+    timeout = subprocess.TimeoutExpired(cmd=["claude"], timeout=30)
+    success = make_result(stdout=json.dumps({"result": "Recovered", "session_id": "new123", "is_error": False}))
+    with patch("subprocess.run", side_effect=[timeout, success]) as mock_run:
+        text, sid = claude_runner.run_claude("bad", "/tmp", session_id="old")
+    assert text == "Recovered"
+    assert sid == "new123"
+    first_cmd = mock_run.call_args_list[0][0][0]
+    second_cmd = mock_run.call_args_list[1][0][0]
+    assert "--resume" in first_cmd
+    assert "--resume" not in second_cmd

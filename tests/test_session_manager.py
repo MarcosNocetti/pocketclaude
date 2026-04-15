@@ -9,6 +9,7 @@ import session_manager
 def reset_state(tmp_path, monkeypatch):
     """Reset session manager state and use temp file for each test."""
     monkeypatch.setattr(session_manager, "SESSION_FILE", str(tmp_path / "sessions.json"))
+    monkeypatch.setattr(session_manager, "ACTIVE_SESSION_FILE", str(tmp_path / "active_session.json"))
     monkeypatch.setattr(session_manager, "_sessions", {})
     monkeypatch.setattr(session_manager, "_active_session", None)
     yield
@@ -80,13 +81,18 @@ def test_claude_id_round_trip():
 
 def test_persistence(tmp_path, monkeypatch):
     session_file = str(tmp_path / "sessions.json")
+    active_file = str(tmp_path / "active_session.json")
     monkeypatch.setattr(session_manager, "SESSION_FILE", session_file)
+    monkeypatch.setattr(session_manager, "ACTIVE_SESSION_FILE", active_file)
     monkeypatch.setattr(session_manager, "_sessions", {})
+    monkeypatch.setattr(session_manager, "_active_session", None)
     session_manager.new_session("persist", "/home/test")
     session_manager.set_claude_id("persist", "xyz789")
     # Simulate reload
     monkeypatch.setattr(session_manager, "_sessions", {})
+    monkeypatch.setattr(session_manager, "_active_session", None)
     session_manager._load()
     assert "persist" in session_manager.list_sessions()
     assert session_manager.get_claude_id("persist") == "xyz789"
     assert session_manager.get_session_cwd("persist") == "/home/test"
+    assert session_manager.get_active() == "persist"
