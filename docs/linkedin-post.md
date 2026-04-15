@@ -1,4 +1,4 @@
-# LinkedIn Post — telegram-pc-bot
+# LinkedIn Post — pocketclaude
 
 ---
 
@@ -19,7 +19,7 @@ O que mudou no meu dia a dia: quando uma ideia aparece, abro o Telegram, mando a
 Você usa alguma ferramenta para reduzir essa fricção no seu fluxo de desenvolvimento?
 
 O repositório está aberto — fique à vontade para adaptar ao seu processo. 👇
-🔗 github.com/marcosnocetti/telegram-pc-bot
+🔗 github.com/marcosnocetti/pocketclaude
 
 #desenvolvimento #produtividade #claudeai #python #opensource
 
@@ -42,6 +42,6 @@ What changed in my daily workflow: when an idea shows up, I open Telegram, send 
 Do you use any tool to reduce friction in your development workflow?
 
 The repository is open — feel free to adapt it to your process. 👇
-🔗 github.com/marcosnocetti/telegram-pc-bot
+🔗 github.com/marcosnocetti/pocketclaude
 
 #development #productivity #claudeai #python #opensource

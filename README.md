@@ -1,4 +1,4 @@
-# telegram-pc-bot
+# pocketclaude
 
 > Acesse o Claude Code pelo seu celular via Telegram — com autenticação 2FA, sessões persistentes e transferência de arquivos.
 
@@ -32,8 +32,8 @@ Veja o [diagrama completo](docs/architecture.md).
 ### Instalação
 
 ```bash
-git clone https://github.com/marcosnocetti/telegram-pc-bot.git
-cd telegram-pc-bot
+git clone https://github.com/marcosnocetti/pocketclaude.git
+cd pocketclaude
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
@@ -54,7 +54,7 @@ UPLOAD_DIR=~/uploads
 Gere o `TOTP_SECRET` e configure no seu app autenticador (Google Authenticator, Authy):
 
 ```bash
-python3 -c "import pyotp; s = pyotp.random_base32(); print(s); print(pyotp.TOTP(s).provisioning_uri('telegram-pc-bot'))"
+python3 -c "import pyotp; s = pyotp.random_base32(); print(s); print(pyotp.TOTP(s).provisioning_uri('pocketclaude'))"
 ```
 
 ### Iniciando
@@ -120,8 +120,8 @@ See the [full diagram](docs/architecture.md).
 ### Installation
 
 ```bash
-git clone https://github.com/marcosnocetti/telegram-pc-bot.git
-cd telegram-pc-bot
+git clone https://github.com/marcosnocetti/pocketclaude.git
+cd pocketclaude
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
@@ -142,7 +142,7 @@ UPLOAD_DIR=~/uploads
 Generate `TOTP_SECRET` and add to your authenticator app (Google Authenticator, Authy):
 
 ```bash
-python3 -c "import pyotp; s = pyotp.random_base32(); print(s); print(pyotp.TOTP(s).provisioning_uri('telegram-pc-bot'))"
+python3 -c "import pyotp; s = pyotp.random_base32(); print(s); print(pyotp.TOTP(s).provisioning_uri('pocketclaude'))"
 ```
 
 ### Starting
