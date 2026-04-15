@@ -32,7 +32,7 @@ Veja o [diagrama completo](docs/architecture.md).
 ### Instalação
 
 ```bash
-git clone https://github.com/SEU_USUARIO/telegram-pc-bot.git
+git clone https://github.com/marcosnocetti/telegram-pc-bot.git
 cd telegram-pc-bot
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -120,7 +120,7 @@ See the [full diagram](docs/architecture.md).
 ### Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/telegram-pc-bot.git
+git clone https://github.com/marcosnocetti/telegram-pc-bot.git
 cd telegram-pc-bot
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
