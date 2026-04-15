@@ -1,6 +1,21 @@
+# Segredos
 .env
+
+# Estado local (gerado em runtime)
+active_session.json
+queue.json
+sessions.json
+
+# Logs
+bot.log
+bot_run.log
+bot_flow_debug.log
+claude_debug.log
+*.log
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
 .venv/
-bot.log
